@@ -13,16 +13,27 @@
   //   - quizzes : fetchで取得したクイズデータの配列(resutls)を保持する
   //   - currentIndex : 現在何問目のクイズに取り組んでいるのかをインデックス番号で保持する
   //   - numberOfCorrects : 正答数を保持するう
-
+  const gameState = {
+    quizzes: [],
+    currentIndex: 0,
+    numberOfCorrects: 0
+  };
 
   // HTMLのid値がセットされているDOMを取得する
-
+  const questionElement = document.getElementById('question');
+  const answersElement = document.getElementById('answers');
+  const resultElement = document.getElementById('result');
+  const restartButtonElement = document.getElementById('restart-button');
 
   // ページの読み込みが完了したらクイズ情報を取得する
-
+  window.onload = () => {
+    fetchQuizData();
+  };
 
   // 「Restart」ボタンをクリックしたら再度クイズデータを取得する
-
+  restartButtonElement.addEventListener('click', (event) => {
+    fetchQuizData();
+  });
 
 
   // `fetchQuizData関数`を実装する
@@ -43,7 +54,19 @@
   //   - 無し
   // - 戻り値
   //   - 無し
+  async function fetchQuizData() {
+    questionElement.textContent = 'Now loading...';
+    resultElement.textContent = '';
+    restartButtonElement.style.display = 'none';
 
+    const response = await fetch(API_URL);
+    const data = await response.json();
+    gameState.quizzes = data.results;
+    gameState.currentIndex = 0;
+    gameState.numberOfCorrects = 0;
+
+    setNextQuiz();
+  }
 
   // setNextQuiz関数を実装する
   // - 実現したいこと
@@ -57,7 +80,17 @@
   //   - 無し
   // - 戻り値
   //   - 無し
+  function setNextQuiz() {
+    questionElement.textContent = '';
+    removeAllAnswers();
 
+    if (gameState.currentIndex < gameState.quizzes.length) {
+      const quiz = gameState.quizzes[gameState.currentIndex];
+      makeQuiz(quiz);
+    } else {
+      finishQuiz();
+    }
+  }
 
   // finishQuiz関数を実装する
   // - 実現したいこと
@@ -67,7 +100,12 @@
   //   - 無し
   // - 戻り値
   //   - 無し
+  function finishQuiz() {
+    resultElement.textContent =
+      gameState.numberOfCorrects + '/' + gameState.quizzes.length + 'corrects';
 
+    restartButtonElement.style.display = 'block';
+  }
 
   // removeAllAnswers関数を実装する
   // - 実現したいこと
@@ -76,7 +114,11 @@
   //   - 無し
   // - 戻り値
   //   - 無し
-
+  function removeAllAnswers() {
+    while (answersElement.firstChild) {
+      answersElement.removeChild(answersElement.firstChild);
+    }
+  }
 
   // makeQuiz関数を実装する
   // - 実現したいこと
@@ -93,7 +135,31 @@
   //   - 無し
   // - 戻り値無し
   //   - 無し
+  function makeQuiz(quiz) {
+    questionElement.textContent = unescapeHTML(quiz.question);
 
+    const margedAnswers = [quiz.correct_answer, ...quiz.incorrect_answers];
+    const shuffledAnswers = shuffle(margedAnswers);
+
+    shuffledAnswers.forEach(answer => {
+      const answerElement = document.createElement('li');
+      answerElement.textContent = unescapeHTML(answer);
+      answerElement.className = 'answer';
+      answersElement.appendChild(answerElement);
+
+      answerElement.addEventListener('click', (event) => {
+        if (event.target.textContent === quiz.correct_answer) {
+          gameState.numberOfCorrects++
+          alert('Correct answer!!');
+        } else {
+          alert('Wrong answer... (The correct answer is ' + quiz.correct_answer + ')');
+        }
+
+        gameState.currentIndex++;
+        setNextQuiz();
+      });
+    });
+  }
 
   // quizオブジェクトの中にあるcorrect_answer, incorrect_answersを結合して
   // 正解・不正解の解答をシャッフルする。
@@ -109,7 +175,16 @@
   //   - array : 配列
   // - 戻り値
   //   - shffuledArray : シャッフル後の配列(引数の配列とは別の配列であることに注意する)
+  function shuffle(array) {
+    const shuffledArray = array.slice();
 
+    for (let i = shuffledArray.length - 1; i >= 0; i--) {
+      const rand = Math.floor(Math.random() * (i + 1));
+      [shuffledArray[i], shuffledArray[rand]] = [shuffledArray[rand], shuffledArray[i]]
+    }
+
+    return shuffledArray;
+  }
 
 
   // unescapeHTML関数を実装する
@@ -121,5 +196,13 @@
   //   - 文字列
   // - 戻り値
   //   - 文字列
-
+  function unescapeHTML(str) {
+    const div = document.createElement("div");
+    div.innerHTML = str.replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/ /g, "&nbsp;")
+      .replace(/\r/g, "&#13;")
+      .replace(/\n/g, "&#10;");
+    return div.textContent || div.innerText;
+  }
 })();
